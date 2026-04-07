@@ -156,8 +156,15 @@ def _init_kv_cache_quant(
     )
 
     # See [Note: Register q/k/v/prob scales in state dict]
-    if should_load_quant_weights(quant_method):
-        assert isinstance(quant_method, BaseKVCacheMethod)
+    # Only weight-quant methods that also provide KV cache scales
+    # (i.e., subclass BaseKVCacheMethod -- in practice the FP8 family) need
+    # to load k/v_scale parameters from the checkpoint. Other quantized
+    # weight schemes (e.g., compressed-tensors INT4/INT8) leave KV cache
+    # quantization fully orthogonal to the weight quant method, so they
+    # should fall through to the default unit scales initialized above.
+    if should_load_quant_weights(quant_method) and isinstance(
+        quant_method, BaseKVCacheMethod
+    ):
         # TODO (mgoin): kv cache dtype should be specified in the FP8
         # checkpoint config and become the "auto" behavior
         if layer.kv_cache_dtype == "fp8_e5m2":
